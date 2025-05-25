@@ -1,0 +1,312 @@
+---
+title: "Project UAS Metode Peramalan"
+author: "Group S"
+date: "2024-06-09"
+output: html_document
+---
+
+```{r}
+library("tseries")
+library("forecast")
+library("TTR")
+library("TSA")
+library("graphics")
+library("astsa")
+library("portes")
+library(ggplot2)
+library(readxl)
+library(tidyverse)
+library(zoo)
+```
+
+```{r}
+## Load Dataset
+data = read_excel("Data Metoper.xlsx")
+data
+```
+
+```{r}
+datats <- ts(data$`Indeks Produksi`, start = c(2010, 1), frequency = 12)
+```
+
+```{r}
+# Create a time series plot
+plot(datats, main = "Indeks Produksi Bulanan Industri Makanan",
+     xlab = "Tahun", ylab = "Indeks Produksi")
+
+ggAcf(datats,lag.max = 48) + ggtitle("ACF")
+ggPacf(datats,lag.max = 48) + ggtitle("ACF")
+
+## Plot Per Musim
+# Create the seasonal plot using forecast package
+seasonplot(datats, main = "Seasonal Plot", year.labels = TRUE, year.labels.left = TRUE, col = rainbow(24), pch = 19)
+```
+
+```{r}
+#Decomposed
+decomposed <- decompose(datats)
+plot(decomposed)
+```
+
+```{r}
+# Identifikasi Model
+ndiffs(log(datats),"adf")
+```
+
+```{r}
+## Transformasi Dasar (Series Non-Musiman)
+#Diff 1 with Log-Trans
+dtrans1 = diff(log(datats), differences=1)
+adf.test(dtrans1)
+
+#Diff 2 with Log-Trans
+dtrans2 = diff(log(datats), differences=2)
+adf.test(dtrans2)
+
+## Transformasi Pada Series Musiman
+# Log-Transformasi d = 1 dan D = 1 (D = 1 artinya panjang musiman yaitu 12)
+dtrans11 = diff(diff(log(datats), lag=12), differences=1)
+adf.test(dtrans11)
+autoplot(dtrans11, main = "Time series plot of logtrans d=1, D=12")
+
+# Log-Transformasi d = 2 dan D = 1 (D = 1 artinya panjang musiman yaitu 12)
+dtrans21 = diff(diff(log(datats), lag=12), differences=2)
+adf.test(dtrans21)
+autoplot(dtrans21, main = "Time series plot of logtrans d=2, D=12")
+
+# Log-Transformasi d = 1 dan D = 2 (D = 2 artinya panjang 2 musiman yaitu 24)
+dtrans12 = diff(diff(log(datats), lag=24), differences=1)
+adf.test(dtrans12)
+autoplot(dtrans12, main = "Time series plot of logtrans d=1, D=24")
+
+# Log-Transformasi d = 2 dan D = 2 (D = 2 artinya panjang 2 musiman yaitu 24)
+dtrans22 = diff(diff(log(datats), lag=24), differences=2)
+adf.test(dtrans22)
+autoplot(dtrans22, main = "Time series plot of logtrans d=2, D=24")
+```
+
+```{r}
+## Identifikasi Model Awal
+ggAcf(dtrans21,lag.max = 24) + ggtitle("ACF")
+ggPacf(dtrans21,lag.max = 24) + ggtitle("PACF")
+```
+
+```{r}
+# Modelling 
+
+#SARIMA (2,2,2)x(0,1,1)
+model1 <- Arima(log(datats),order=c(2,2,2),seasonal=list(order=c(0,1,1), period=12), include.constant = FALSE)
+summary(model1)
+
+#SARIMA (2,2,1)x(0,1,1)
+model2 <- Arima(log(datats),order=c(2,2,1),seasonal=list(order=c(0,1,1), period=12), include.constant = FALSE)
+summary(model2)
+
+#SARIMA (2,2,0)x(0,1,1)
+model3 <- Arima(log(datats),order=c(2,2,0),seasonal=list(order=c(0,1,1), period=12), include.constant = FALSE)
+summary(model3)
+
+#SARIMA (1,2,2)x(0,1,1)
+model4 <- Arima(log(datats),order=c(1,2,2),seasonal=list(order=c(0,1,1), period=12), include.constant = FALSE)
+summary(model4)
+
+#SARIMA (1,2,1)x(0,1,1)
+model5 <- Arima(log(datats),order=c(1,2,1),seasonal=list(order=c(0,1,1), period=12), include.constant = FALSE)
+summary(model5)
+
+#SARIMA (1,2,0)x(0,1,1)
+model6 <- Arima(log(datats),order=c(1,2,0),seasonal=list(order=c(0,1,1), period=12), include.constant = FALSE)
+summary(model6)
+
+#SARIMA (0,2,2)x(0,1,1)
+model7 <- Arima(log(datats),order=c(0,2,2),seasonal=list(order=c(0,1,1), period=12), include.constant = FALSE)
+summary(model7)
+
+#SARIMA (0,2,1)x(0,1,1)
+model8 <- Arima(log(datats),order=c(0,2,1),seasonal=list(order=c(0,1,1), period=12), include.constant = FALSE)
+summary(model8)
+
+```
+
+```{r}
+# Uji Signifikansi Model
+printstatarima <- function (x, digits = 4,se=TRUE){
+  if (length(x$coef) > 0) {
+    cat("\nCoefficients:\n")
+    coef <- round(x$coef, digits = digits)
+    if (se && nrow(x$var.coef)) {
+      ses <- rep(0, length(coef))
+      ses[x$mask] <- round(sqrt(diag(x$var.coef)), digits = digits)
+      coef <- matrix(coef, 1, dimnames = list(NULL, names(coef)))
+      coef <- rbind(coef, s.e. = ses)
+      statt <- coef[1,]/ses
+      pval  <- 2*pt(abs(statt), df=length(x$residuals)-1, lower.tail = FALSE)
+      coef <- rbind(coef, t=round(statt,digits=digits),sign.=round(pval,digits=digits))
+      coef <- t(coef)
+    }
+    print.default(coef, print.gap = 2)
+  }
+}
+
+printstatarima(model1)
+
+printstatarima(model2)
+
+printstatarima(model3)
+
+printstatarima(model4)
+
+printstatarima(model5)
+
+printstatarima(model6)
+
+printstatarima(model7)
+
+printstatarima(model8)
+```
+
+```{r}
+### Model - Model yang Signifikan
+# Diagnostic Checking
+#Model 2
+print('Uji Autokorelasi : ') 
+Box.test(model2$residuals,type="Ljung")#uji autokorelasi
+print('Uji Homoskedastik : ')
+Box.test((model2$residuals)^2,type="Ljung") #uji homoskedastik
+print('Uji Normalitas : ')
+jarque.bera.test(model2$residuals) #uji normalitas
+
+checkresiduals(model2)
+
+#Model 3
+print('Uji Autokorelasi : ') 
+Box.test(model3$residuals,type="Ljung")#uji autokorelasi
+print('Uji Homoskedastik : ')
+Box.test((model3$residuals)^2,type="Ljung") #uji homoskedastik
+print('Uji Normalitas : ')
+jarque.bera.test(model3$residuals) #uji normalitas
+
+checkresiduals(model3)
+
+#Model 5
+print('Uji Autokorelasi : ') 
+Box.test(model5$residuals,type="Ljung")#uji autokorelasi
+print('Uji Homoskedastik : ')
+Box.test((model5$residuals)^2,type="Ljung") #uji homoskedastik
+print('Uji Normalitas : ')
+jarque.bera.test(model5$residuals) #uji normalitas
+
+checkresiduals(model5)
+
+#Model 6
+print('Uji Autokorelasi : ') 
+Box.test(model6$residuals,type="Ljung")#uji autokorelasi
+print('Uji Homoskedastik : ')
+Box.test((model6$residuals)^2,type="Ljung") #uji homoskedastik
+print('Uji Normalitas : ')
+jarque.bera.test(model6$residuals) #uji normalitas
+
+checkresiduals(model6)
+
+#Model 7
+print('Uji Autokorelasi : ') 
+Box.test(model7$residuals,type="Ljung")#uji autokorelasi
+print('Uji Homoskedastik : ')
+Box.test((model7$residuals)^2,type="Ljung") #uji homoskedastik
+print('Uji Normalitas : ')
+jarque.bera.test(model7$residuals) #uji normalitas
+
+checkresiduals(model7)
+
+#Model8
+print('Uji Autokorelasi : ') 
+Box.test(model8$residuals,type="Ljung")#uji autokorelasi
+print('Uji Homoskedastik : ')
+Box.test((model8$residuals)^2,type="Ljung") #uji homoskedastik
+print('Uji Normalitas : ')
+jarque.bera.test(model8$residuals) #uji normalitas
+
+checkresiduals(model8)
+```
+
+```{r}
+# Model Terbaik
+mod_3 = data.frame(Model = "model3", LogLik = logLik(model3), AIC = AIC(model3), BIC = BIC(model3), RMSE=accuracy(forecast(model3,12))[,2])
+mod_2 = data.frame(Model = "model2", LogLik = logLik(model2), AIC = AIC(model2), BIC = BIC(model2), RMSE=accuracy(forecast(model2,12))[,2])
+mod_5 = data.frame(Model = "model5", LogLik = logLik(model5), AIC = AIC(model5), BIC = BIC(model5), RMSE=accuracy(forecast(model5,12))[,2])
+mod_6 = data.frame(Model = "model6", LogLik = logLik(model6), AIC = AIC(model6), BIC = BIC(model6), RMSE=accuracy(forecast(model6,12))[,2])
+mod_7 = data.frame(Model = "model7", LogLik = logLik(model7), AIC = AIC(model7), BIC = BIC(model7), RMSE=accuracy(forecast(model7,12))[,2])
+
+model_selection = rbind(mod_3, mod_2, mod_5, mod_6, mod_7)
+model_selection
+```
+
+```{r}
+# Forecasting dengan Model Terbaik
+#Peramalan 12 periode kedepan dengan model7
+
+forecast(model7,12)
+
+accuracy(forecast(model7,12))
+```
+
+```{r}
+forecast_result <- forecast(model7, h = 12)
+
+# Transformasi hasil forecast kembali ke skala asli
+forecast_values <- exp(forecast_result$mean)
+lower_bound <- exp(forecast_result$lower)
+upper_bound <- exp(forecast_result$upper)
+
+end_date <- as.yearmon("2023-12", "%Y-%m")
+forecast_dates <- seq(from = end_date + 1/12, by = 1/12, length.out = 12)
+
+# Buat data frame hasil forecast dengan interval kepercayaan
+forecast_df <- data.frame(
+  Date = forecast_dates,
+  Forecast = forecast_values,
+  Lower80 = lower_bound[,1],
+  Upper80 = upper_bound[,1],
+  Lower95 = lower_bound[,2],
+  Upper95 = upper_bound[,2]
+)
+
+forecast_df 
+```
+```{r}
+forecast_df <- data.frame(
+  Date = forecast_dates,
+  Forecast = forecast_values
+)
+forecast_df 
+```
+
+
+```{r}
+#Plot data hasil ramalan
+# Convert the time series object to a dataframe
+original_data <- data.frame(
+  Date = as.yearmon(time(datats)),
+  Value = as.numeric(datats)
+)
+
+# Combine original data and forecast data
+combined_data <- rbind(
+  data.frame(Date = original_data$Date, Value = original_data$Value, Type = "Actual"),
+  data.frame(Date = forecast_df$Date, Value = forecast_df$Forecast, Type = "Forecast")
+)
+
+# Create the plot using ggplot2
+p <- ggplot() +
+  geom_line(data = combined_data, aes(x = Date, y = Value, color = Type), linewidth = 1) +
+  geom_ribbon(data = forecast_df, aes(x = Date, ymin = Lower80, ymax = Upper80), alpha = 0.2, fill = "blue") +
+  geom_ribbon(data = forecast_df, aes(x = Date, ymin = Lower95, ymax = Upper95), alpha = 0.1, fill = "blue") +
+  labs(title = "Plot Data Asli vs Ramalan",
+       x = "Periode",
+       y = "Indeks Produksi",
+       color = "Legend") +
+  theme_minimal()
+
+# Display the plot
+print(p)
+```
