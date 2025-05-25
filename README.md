@@ -1,1 +1,6 @@
-# Forecasting-Food-Production-using-SARIMA
+# Forecasting Food Production in Indonesia Using the SARIMA Method
+This project aimed to forecast Indonesia's food production using the Seasonal Autoregressive Integrated Moving Average (SARIMA) model based on monthly production index data from the Central Bureau of Statistics (BPS) covering the period 2010 to 2023. The study was motivated by the need for accurate demand and supply prediction in the food industry to support inventory control, policy-making, and market strategy.
+
+The methodology included a comprehensive time series analysis starting with preprocessing, stationarity testing using the Augmented Dickey-Fuller (ADF) test, model identification through ACF and PACF plots, parameter estimation, diagnostic checking, and model evaluation. Several SARIMA models were compared based on log-likelihood, AIC, BIC, and RMSE values, with ARIMA(0,2,2) SARIMA(0,1,1)[12] identified as the best-fitting model.
+
+The selected model was then used to forecast food production for the 12 months of 2024. Results showed that SARIMA was effective in capturing both the seasonal and trend components of the data, producing forecasts close to actual values. This model supports strategic decisions in the food sector, helping maintain price stability and ensuring availability in the market. Dataset: BPS Food Industry Production Index.
